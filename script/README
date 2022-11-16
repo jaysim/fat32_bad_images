@@ -1,0 +1,69 @@
+# list of scripts
+<ol>
+  <li>test_fsck_verification.py</li>
+  <li>test_dump_verification.py</li>
+  <li>test_check_bad_images.py</li>
+  <li>hack_fat32.py</li>
+</ol>
+
+## test_fsck_verfication.py
+It receive two fat fsck tools as parameters It execute fsck of first parameter,
+and it verify repaired image with fsck of second parameter.
+Script support three kinds of fsck tools.
+So you can check filesystem with fatprogs and verify it with dosfstools. Or vice versa.
+And all combination is possible for checking and verifying.
+
+<ol>
+  <li>fsck.fat : dosfstools GPLv3</li>
+  <li>dosfsck : fatprogs GPLv2</li>
+  <li>tfsck : tuxera fat fsck tool</li>
+</ol>
+
+NOTE: script is distinguished by the name of executable file in parameters.
+So you should use fsck.fat for dofstools v4.2.
+
+output files:
+output files will also be created in *result_output* directory.
+output file format is like below:
+'fsck checking output' will log for all corrupted images of fsck checking step.
+Also 'fsck verifying output' will log for all repaired images of fsck verifying step.
+
+<code>
+fsck checking output: fsck__{fsck tool name}__{date}.result.out
+fsck verifying output: fsck__{fsck tool name}__{date}.verified_result.out
+</code>
+
+## test_dump_verficiation.py
+This script is for testing *dosfsdump* utililty of fatprogs.
+script executes *dosfsdump* for corrupted images respectively. After that,
+it executes dosfsck on dumped file and logs to output file. You may compare it with
+previsous fsck result output log manually.
+
+output file:
+output files will also be created in *result_output* directory.
+output file for this dump script is like below:
+output file will also include log for *dosfsdump*.
+
+<code>
+dump checking output: dump__{fsck tool name}__{date}.result.out
+</code>
+
+## test_check_bad_images.py
+check all corrupted images with '-n' option for both fsck tools of dosfstools and fatprogs.
+
+output files:
+output files will be created in *result_output* directory.
+You may compare result with each output.
+
+<code>
+fsckcmp__dosfstools__{date}.result.out
+fsckcmp__fatprogs__{date}.result.out
+</code>
+
+you can compare output files for difference of results.
+
+## hack_fat32.py
+script for read sector / write sector / read FAT / write FAT / read cluster / write cluster of FAT32
+
+It used for making corrupted images with data files in 'bad_image_data' directory.
+For detail usage, you may execute './script/hack_fat32.py -h'

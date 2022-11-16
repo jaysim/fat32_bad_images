@@ -68,32 +68,58 @@ def getDirTableEntry(fd):
 def ppNum(num):
   return "%s (%s)" % (hex(num), num)
 
+class CustomArgumentParser(ap.ArgumentParser):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.mutually_exclusive_group = None
+
+    def add_mutually_exclusive_group(self, required=False):
+        self.mutually_exclusive_group = super().add_mutually_exclusive_group(required=required)
+        return self.mutually_exclusive_group
+
+    def error(self, message):
+        self_group = self.mutually_exclusive_group
+        required_args = [action.metavar for action in self._actions if action.required]
+        if self.mutually_exclusive_group:
+            group_args = [action.option_strings[0] for action in self_group._group_actions]
+
+        if required_args:
+            print("{}: error: the following arguments are required: ".format(self.prog) + ', '.join(required_args))
+
+        if group_args:
+            print("{}: error: the one of following arguments are required: ".format(self.prog) + ', '.join(group_args))
+
+        print(self.format_help())
+        self.exit(2)
+
 def parse_argument():
     global args
     global parser
 
     desc = 'FAT32 Binary read/write script'
-    wclus_help = 'write \'input file\'(binary) to cluster'
-    rclus_help = 'read cluster'
-    rfat_help = 'read FAT area that include <cluster> and write it to \'out-file\''
-    wfat_help = 'read \'input file\'(binary) and write it to FAT area that include <cluster>'
-    rsec_help = 'read sector and write it to \'out-file\'. sector 0 represents boot sector'
-    wsec_help = 'read \'in-file\' and write it to specific sector, sector 0 represents boot sector'
-    output_metavar = ("cluster", "out-file")
-    input_metavar = ("cluster", "in-file")
-    outsec_metavar = ("sector", "out-file")
-    insec_metavar = ("sector", "in-file")
+    wclus_help = 'read binary <in-file> and write it to cluster'
+    rclus_help = 'read <cluster>'
+    rfat_help = 'read FAT area that include <cluster> and write it to <out-file>'
+    wfat_help = 'read binary <in-file> and write it to FAT area that include <cluster>'
+    rsec_help = 'read sector and write it to <out-file>. sector 0 represents boot sector'
+    wsec_help = 'read binary <in-file> and write it to specific <sector>, sector 0 represents boot sector'
+    device_help = 'block device or file to read/write cluster or FAT area of FAT32'
+    output_metavar = ("<cluster>", "<out-file>")
+    input_metavar = ("<cluster>", "<in-file>")
+    outsec_metavar = ("<sector>", "<out-file>")
+    insec_metavar = ("<sector>", "<in-file>")
 
-    parser=ap.ArgumentParser(description=desc)
-    group = parser.add_mutually_exclusive_group()
-    group.add_argument("-rb", nargs='+', metavar=outsec_metavar, help=rsec_help, dest="rsec")
-    group.add_argument("-rc", metavar="cluster", help=rclus_help, dest="rclus")
-    group.add_argument("-rf", nargs='+', metavar=output_metavar, help=rfat_help, dest="rfat")
+#    parser = ap.ArgumentParser(description=desc)
+    parser = CustomArgumentParser(description=desc)
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument("-rb", nargs=2, metavar=outsec_metavar, help=rsec_help, dest="rsec")
+    group.add_argument("-rc", metavar="<cluster>", help=rclus_help, dest="rclus")
+    group.add_argument("-rf", nargs=2, metavar=output_metavar, help=rfat_help, dest="rfat")
 
     group.add_argument("-wb", nargs=2, metavar=insec_metavar, help=wsec_help, dest="wsec")
     group.add_argument("-wc", nargs=2, metavar=input_metavar, help=wclus_help, dest="wclus")
     group.add_argument("-wf", nargs=2, metavar=input_metavar, help=wfat_help, dest="wfat")
-    parser.add_argument("device", help='fat32 volume, or dump file')
+    parser.add_argument("device", metavar='<device>', help='fat32 volume, or dump file')
     try:
         args = parser.parse_args()
     except ap.ArgumentError as e:

@@ -5,79 +5,63 @@ import os
 import subprocess as sp
 import argparse as ap
 import time
+import datetime
 
 # bad_cc : bad cluster chain
 # bad_de : bad directory entry
 # bad_dirty : dirty flag
 # bad_ent : bad match of de and lfn entry
 # bad_lfn : bad lfn entry
-bad_sample=[
-        "fat32_bad_cc02.dump",
-        "fat32_bad_cc03.dump",
-        ]
-
-bad_images=[
-        "fat32_bad_boot01.dump", "fat32_bad_boot02.dump", "fat32_bad_boot03.dump", "fat32_bad_boot04.dump",
-        "fat32_bad_boot05.dump", "fat32_bad_boot06.dump", "fat32_bad_boot07.dump", "fat32_bad_boot08.dump",
-        "fat32_bad_boot09.dump",
-        "fat32_bad_cc01.dump", "fat32_bad_cc02.dump", "fat32_bad_cc03.dump", "fat32_bad_cc04.dump",
-        "fat32_bad_cc05.dump", "fat32_bad_cc06.dump", "fat32_bad_cc07.dump", "fat32_bad_cc08.dump",
-        "fat32_bad_cc09.dump", "fat32_bad_cc10.dump", "fat32_bad_cc11.dump", "fat32_bad_cc12.dump",
-        "fat32_bad_cc13.dump", "fat32_bad_cc14.dump", "fat32_bad_cc15.dump", "fat32_bad_cc16.dump",
-        "fat32_bad_cc17.dump",
-        "fat32_bad_de01.dump", "fat32_bad_de02.dump", "fat32_bad_de03.dump", "fat32_bad_de04.dump",
-        "fat32_bad_de05.dump", "fat32_bad_de06.dump", "fat32_bad_de07.dump", "fat32_bad_de08.dump",
-        "fat32_bad_de09.dump", "fat32_bad_de10.dump", "fat32_bad_de11.dump", "fat32_bad_de13.dump",
-        "fat32_bad_de14.dump", "fat32_bad_de15.dump", "fat32_bad_de16.dump", "fat32_bad_de17.dump",
-        "fat32_bad_de18.dump", "fat32_bad_de19.dump", "fat32_bad_de20.dump", "fat32_bad_de21.dump",
-        "fat32_bad_de22.dump", "fat32_bad_de23.dump", "fat32_bad_de24.dump", "fat32_bad_de25.dump",
-        "fat32_bad_de26.dump", "fat32_bad_de27.dump", "fat32_bad_de28.dump", "fat32_bad_de29.dump",
-        "fat32_bad_ent01.dump", "fat32_bad_ent02.dump", "fat32_bad_ent03.dump", "fat32_bad_ent04.dump",
-        "fat32_bad_ent05.dump", "fat32_bad_ent06.dump",
-        "fat32_bad_dirty01.dump",  "fat32_bad_dirty02.dump", "fat32_bad_dirty03.dump",
-        "fat32_bad_fsinfo01.dump", "fat32_bad_fsinfo02.dump",
-        "fat32_bad_lfn01.dump", "fat32_bad_lfn02.dump", "fat32_bad_lfn03.dump", "fat32_bad_lfn04.dump",
-        "fat32_bad_lfn05.dump", "fat32_bad_lfn06.dump",
-        "fat32_bad_vol01.dump", "fat32_bad_vol02.dump", "fat32_bad_vol03.dump", "fat32_bad_vol04.dump",
-        "fat32_bad_vol05.dump", "fat32_bad_vol06.dump", "fat32_bad_vol07.dump", "fat32_bad_vol08.dump",
-        "fat32_bad_vol09.dump", "fat32_bad_vol10.dump", "fat32_bad_vol11.dump", "fat32_bad_vol12.dump",
-        "fat32_bad_vol13.dump", "fat32_bad_vol14.dump", "fat32_bad_vol15.dump", "fat32_bad_vol16.dump",
-        "fat32_bad_vol17.dump",
-        ]
 
 # support fsck tools execution file name
-fatprogs="dosfsck"
-tfsck="fatfsck"
-wfsck="fat_fsck"
-dosfstools="fsck.fat"
+support_tools = {
+        "fatprogs" : "dosfsck",
+        "tfsck" : "fatfsck",
+        "wfsck" : "fat_fsck",
+        "dosfstools" : "fsck.fat",
+}
 
-dump_log_output="dump.log"
-dump_file="dump.file"
-dump_output = "_fsck_after_dump.out"
+fatprogs = support_tools.get("fatprogs")
+tfsck = support_tools.get("tfsck")
+wfsck = support_tools.get("wfsck")
+dosfstools = support_tools.get("dosfstools")
+
+dump_target="dump.file"
+dump_output = "dump__{}__{}.result.out"
+result_dir = "result_output"
+current = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+
 fsck_cmd="time -v {} {} {} 2>&1"
 dump_cmd="{} -o {} -v {} 2>&1"
-
-copy_dump="cp fat32_bad.img {}/fat32_dumptest.img"
-
-test_images=bad_images
-#test_images=bad_sample
+untar_cmd="tar zxvf {} -C {}"
 
 args=''
+
+class CustomArgumentParser(ap.ArgumentParser):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def error(self, message):
+        required_args = [action.metavar for action in self._actions if action.required]
+        print("{}: error: the following arguments are required: ".format(self.prog) + ', '.join(required_args))
+        print(self.format_help())
+        self.exit(2)
 
 def parse_argument():
     global args
 
     desc = 'FAT32 bad image dump test script'
     verify_help = 'add verification pass option of dosfsck'
-    path1_help = 'full path for verifying dump using fsck, generally fatprogs fsck(dosfsck)'
-    path2_help = 'full path for testing dump, generally fatprogs domp(dosfsdump)'
-    dir_help = 'corrupted image(dump target) path for testing'
+    path1_help = 'fsck full path for verifying dumped image, usually fatprogs fsck(dosfsck)'
+    path2_help = 'dump full path for dumping image, usually fatprogs domp(dosfsdump)'
+    dir_help = '(optional) dump test directory: default "./testdir/"'
 
-    parser = ap.ArgumentParser(description=desc)
+#    parser = ap.ArgumentParser(description=desc)
+    parser = CustomArgumentParser(description=desc)
     parser.add_argument("-v", help=verify_help, action='store_false')
-    parser.add_argument("path1", metavar='<path1>', help=path1_help)
-    parser.add_argument("path2", metavar='<path2>', help=path2_help)
-    parser.add_argument("dirname", metavar='<path3>', help=dir_help)
+    parser.add_argument("path1", metavar='<fsck>', help=path1_help)
+    parser.add_argument("path2", metavar='<dump>', help=path2_help)
+    parser.add_argument("dirname", nargs='?', metavar='<target_dir>', help=dir_help, default=".")
 
     try:
         args = parser.parse_args()
@@ -98,6 +82,8 @@ path2 = args.path2
 dirname = args.dirname
 if (args.dirname[-1] != "/"):
     dirname = args.dirname + "/"
+
+testdir = dirname + "testdir/"
 
 # do not use origin dump file,
 # you'd better use copied image to <test image path> for test
@@ -135,66 +121,85 @@ if not os.path.isfile(path2):
 
 if fatprogs in path1:
     path1_arg = "-nfv"
-    fsck_output = "[" + fatprogs + "]" + dump_output
+    dump_output = dump_output.format(fatprogs, current)
     if (args.v):
         path1_arg = path1_arg + "V"
 elif wfsck in path1:
     path1_arg = "-y"
-    fsck_output = "[" + wfsck + "]" + dump_output
+    dump_output = dump_output.format(wfsck, current)
 elif dosfstools in path1:
     path1_arg = "-nfv"
-    fsck_output = "[" + dosfstools + "]" + dump_output
+    dump_output = dump_output.format(dosfstools, current)
     if (args.v):
         path1_arg = path1_arg + "V"
 elif tfsck in path1:
     path1_arg = "-a"
-    fsck_output = "[" + tfsck + "]" + dump_output
+    dump_output = dump_output.format(tfsck, current)
 else:
     print("Not support <fsck> : " + path2)
     exit(1)
 
-fsck_step=fsck_cmd.format(path1, path1_arg, dirname + dump_file)
+test_images=sorted([file for file in os.listdir(dirname) if file.endswith('.tgz')])
+#test_images=["fat32_bad_cc01.tgz"]
 
-copy_dump = copy_dump.format(dirname)
+if not os.path.isdir(dirname + result_dir):
+    if os.path.isfile(dirname + result_dir):
+        os.remove(dirname + result_dir)
+    os.mkdir(dirname + result_dir)
 
-dump_log_output = dirname + dump_log_output
-fsck_output = dirname + fsck_output
+dump_output = dirname + result_dir + '/' + dump_output
 
-if os.path.isfile(dump_log_output):
-    os.remove(dump_log_output)
+if os.path.isfile(dump_output):
+    os.remove(dump_output)
 
-if os.path.isfile(fsck_output):
-    os.remove(fsck_output)
+if not os.path.isdir(testdir):
+    if os.path.isfile(testdir):
+        os.remove(testdir)
+    os.mkdir(testdir)
 
-fd_fsck = open(fsck_output, 'a')
+total_cnt = len(test_images)
+success_cnt = 0
 
-with open(dump_log_output, 'a') as fd_dump:
+with open(dump_output, 'a') as fd_dump:
     for image in test_images:
         try:
-            dump_step=dump_cmd.format(path2, dirname + dump_file, dirname + image)
-
-            print("dump step: " + image)
-            print("\n\n" + image + " =======================================", file=fd_dump, flush=True)
+            untar_step=untar_cmd.format(image, testdir)
+            file = image.replace('.tgz', '.dump')
+            print("== Start : {} =====================".format(file))
+            proc = sp.run(untar_step, shell=True, stdout=sp.DEVNULL, stderr=sp.STDOUT)
             fd_dump.flush()
 
+            print("dump step: " + file)
+            print("\n\nDump: " + file + " =======================================", file=fd_dump, flush=True)
+
+            dump_step=dump_cmd.format(path2, testdir + dump_target, testdir + file)
             proc = sp.run(dump_step, shell=True, stdout=fd_dump, stderr=sp.STDOUT)
             fd_dump.flush()
             time.sleep(1)
 
-            print("fsck step: " + image)
-            print("\n\n" + image + " =======================================", file=fd_fsck, flush=True)
-            fd_fsck.flush()
+            print("fsck step: " + file)
+            print("\n\nfsck: " + file + " =======================================", file=fd_dump, flush=True)
 
-            proc = sp.run(fsck_step, shell=True, stdout=fd_fsck, stderr=sp.STDOUT)
-            fd_fsck.flush()
+            fsck_step=fsck_cmd.format(path1, path1_arg, testdir + dump_target)
+            proc = sp.run(fsck_step, shell=True, stdout=fd_dump, stderr=sp.STDOUT)
+            if not (proc.returncode == 0 or proc.returncode == 1):
+                print("Failed to dump {}".format(file))
+                print("===================================")
+                break
+
+            success_cnt += 1
+            fd_dump.flush()
+            os.remove(testdir + dump_target)
             time.sleep(1)
 
         except sp.CalledProcessError as e:
             print(e.output)
 
-"""
-rm_cmd = "bash -c 'rm -rf {}/{}'".format(dirname, dump_img)
-sp.run(rm_cmd, shell=True)
-"""
-rm_cmd = "bash -c 'rm -rf {}/fat32_bad_* 2>&1'".format(dirname)
-sp.run(rm_cmd, shell=True)
+if total_cnt == success_cnt:
+    rm_cmd = "bash -c 'rm -rf {}/{}'".format(testdir, '*.dump')
+    sp.run(rm_cmd, shell=True)
+
+    os.rmdir(testdir)
+
+print("\nPassed {} of {} images".format(success_cnt, total_cnt))
+print("===================================")

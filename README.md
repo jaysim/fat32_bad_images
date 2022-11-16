@@ -14,12 +14,14 @@ in script. (list variable bad\_images)
 ## details for corrupted images
 category of corrupted images are like below.
 
-- bad\_bootXX : boot sector corrupted images
-- bad\_ccXX : cluster chain corrupted images
-- bad\_deXX : directory entry(DE) corrupted images
-- bad\_dirtyXX : test image for filesystem dirty flag (boot sector and FAT #1)
-- bad\_entXX/bad\_lfnXX : ".", ".." entry and lfn(long filename) corrupted images
-- bad\_volXX : volume label corrupted or missing images
+<code>
+- bad_bootXX : boot sector corrupted images
+- bad_ccXX : cluster chain corrupted images
+- bad_deXX : directory entry(DE) corrupted images
+- bad_dirtyXX : test image for filesystem dirty flag (boot sector and FAT #1)
+- bad_entXX/bad_lfnXX : ".", ".." entry and lfn(long filename) corrupted images
+- bad_volXX : volume label corrupted or missing images
+</code>
 
 ## test script
 Scripts are consist of creating and testing corrupted image and testing.
